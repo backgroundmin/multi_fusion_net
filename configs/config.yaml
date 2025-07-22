@@ -1,0 +1,114 @@
+# Multi-Fusion-Net Configuration
+
+# Dataset Configuration
+dataset:
+  name: "pandaset"
+  root_path: "/home/d2-521-30/repo/multi_fusion_net/data/pandaset"
+  sequences:
+    train: ["001", "002", "003", "004", "005", "006", "008",
+            "011", "012", "013", "014", "015", "016", "017", "018", "019", "020",
+            "021", "023", "024", "027", "028", "029", "030"]
+    val: ["032", "033", "034", "035"]
+    test: ["036", "037", "038", "039", "040", "041", "042", "043", "044", "045", "046", "047"]
+  
+  # Camera Configuration
+  cameras:
+    enabled: ["front_camera", "front_left_camera", "front_right_camera", 
+              "left_camera", "right_camera", "back_camera"]
+    image_size: [1920, 1080]
+    resize_to: [320, 180]  # Resize for efficiency (reduced further)
+    
+  # LiDAR Configuration  
+  lidar:
+    original_channels: 64
+    target_channels: 32
+    downsample_method: "uniform"  # uniform, density_based
+    max_range: 120.0  # meters
+    min_range: 0.5    # meters
+
+# BEV Grid Configuration
+bev_grid:
+  x_range: [-25.0, 25.0]   # meters, forward/backward (reduced)
+  y_range: [-12.5, 12.5]   # meters, left/right (reduced)
+  z_range: [-3.0, 5.0]     # meters, height
+  resolution: 0.25         # meters per pixel (reduced resolution)
+  # Resulting BEV size: [200, 100] pixels
+
+# Model Configuration
+model:
+  # Camera Backbone
+  camera_backbone:
+    type: "resnet50"
+    pretrained: true
+    frozen_stages: 1
+    
+  # LiDAR Encoder
+  lidar_encoder:
+    type: "spconv"
+    voxel_size: [0.2, 0.2, 8.0]  # x, y, z voxel dimensions
+    point_cloud_range: [-50.0, -25.0, -3.0, 50.0, 25.0, 5.0]
+    
+  # Fusion Module
+  fusion:
+    type: "concat"  # concat, attention, cross_attention
+    hidden_dim: 256
+    
+  # Detection Head
+  detection_head:
+    num_classes: 28  # PandaSet classes
+    anchor_sizes: [[1.6, 3.9, 1.56],   # Car
+                   [0.6, 1.76, 1.73],   # Pedestrian
+                   [0.6, 0.8, 1.73]]    # Cyclist
+    
+  # Segmentation Heads
+  lane_seg_head:
+    num_classes: 10  # Lane types
+    
+  occupancy_head:
+    num_classes: 3   # free, occupied, unknown
+
+# Training Configuration
+training:
+  # Basic Settings
+  batch_size: 2 
+  num_epochs: 50
+  learning_rate: 0.0002
+  weight_decay: 0.0001
+  
+  # Optimizer & Scheduler
+  optimizer: "adamw"
+  scheduler: "cosine"
+  warmup_epochs: 5
+  
+  # Mixed Precision Training
+  use_amp: true
+  
+  # Data Augmentation
+  augmentation:
+    camera_dropout_prob: 0.3  # Randomly disable cameras
+    random_flip: 0.5
+    random_rotation: 0.1
+    color_jitter: 0.2
+    
+  # Loss Weights
+  loss_weights:
+    detection: 1.0
+    lane_seg: 0.5
+    occupancy: 0.3
+
+# Validation & Testing
+validation:
+  eval_interval: 5  # epochs
+  save_interval: 10 # epochs
+  
+# Hardware Configuration
+device:
+  gpu_ids: [0]
+  num_workers: 0 
+  pin_memory: true
+  
+# Logging
+logging:
+  use_wandb: false
+  project_name: "multi-fusion-net"
+  log_interval: 100  # steps
